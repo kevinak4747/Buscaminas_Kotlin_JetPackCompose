@@ -1,27 +1,56 @@
 package com.example.buscaminas_2dapracticakotlinjeckpackcompose.ui.game
 
-// Estado único del juego.
-// Todo lo que se dibuja en pantalla sale de aquí.
+// Estado único del juego, lo que se dibuja en pantalla sale de aquí
+// Este estado es inmutable, cada cambio crea una copia nueva y la se pinta de nuevo en pantalla
+// Esto es lo que hace que la UI se actualice sola al cambiar el estado.
 data class GameUiState(
-    val rows: Int = 3,
-    val cols: Int = 3,
+
+    // Número de filas del tablero
+    val rows: Int = 8,
+
+    // Número de columnas del tablero
+    val cols: Int = 8,
+
+    // Número total de minas en el tablero
+    val mineCount: Int = 10,
+
+    // Estado actual de la partida
     val status: GameStatus = GameStatus.PLAYING,
+
+    // Tiempo transcurrido en segundos
     val elapsedSeconds: Int = 0,
+
+    // Tablero del juego
+    // Lista de filas y cada fila contiene casillas
     val board: List<List<CellUi>> = emptyList()
 )
 
-// Estado general de la partida.
+
+// Representa el estado general del juego
 enum class GameStatus {
     PLAYING,
     WON,
     LOST
 }
 
-// Estado de cada casilla.
+
+// Representa una casilla individual del tablero
 data class CellUi(
+
+    // Posición de la casilla dentro del tablero
     val row: Int,
     val col: Int,
+
+    // Indica si esta casilla tiene una mina
     val isMine: Boolean,
+
+    // Número de minas alrededor
+    // Si es 0 es una casilla vacía
     val adjacentMines: Int,
-    val isRevealed: Boolean
+
+    // Indica si la casilla ya está revelada
+    val isRevealed: Boolean,
+
+    // Indica si el usuario ha puesto una bandera
+    val hasFlag: Boolean = false
 )

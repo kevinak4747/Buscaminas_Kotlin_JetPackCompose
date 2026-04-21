@@ -22,6 +22,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.getValue  // Para usar el valor animado con by
 import androidx.compose.runtime.remember
 import androidx.compose.ui.draw.scale
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 
 // GameScreen es una pantalla "tonta":
 // solo dibuja el estado y envía eventos al ViewModel.
@@ -63,12 +70,15 @@ fun GameScreen(
         // Mostramos el estado actual de la partida.
         Text(text = "Estado: ${uiState.status}")
 
+        // Muestro el tiempo actual de la partida en segundos
+        Text(text = "Tiempo: ${uiState.elapsedSeconds} s")
+
         // Botón para reiniciar (manda evento al ViewModel).
         Button(onClick = { onEvent(GameEvent.RestartPressed) }) {
             Text(text = "Reiniciar")
         }
 
-        // Tablero 3x3.
+        // Tablero 8x8 con 8 minas, se dibuja con un LazyVerticalGrid.
         Board(
             uiState = uiState,
             onEvent = onEvent
@@ -76,72 +86,126 @@ fun GameScreen(
     }
 }
 
-// Dibuja el tablero a partir de uiState.board.
+// Dibuja el tablero usando LazyVerticalGrid
 @Composable
 private fun Board(
     uiState: GameUiState,
     onEvent: (GameEvent) -> Unit
 ) {
-    // Si por lo que sea aún no hay tablero, no dibujamos nada.
+    // Si por lo que sea aún no hay tablero, no dibujo nada
     if (uiState.board.isEmpty()) return
 
-    for (r in 0 until uiState.rows) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // Convierto la matriz de casillas en una sola lista
+    // Esto me permite pintar todas las celdas dentro del grid
+    val flatBoard = uiState.board.flatten()
 
-            for (c in 0 until uiState.cols) {
-                val cell = uiState.board[r][c]
+    LazyVerticalGrid(
+        columns = GridCells.Fixed(uiState.cols),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        items(flatBoard) { cell ->
 
-                // Desactivo celdas reveladas y también el tablero si la partida terminó.
-                val enabledCell = uiState.status == GameStatus.PLAYING && !cell.isRevealed
+            // Solo permito interactuar si la partida sigue en curso
+            val enabledCell = uiState.status == GameStatus.PLAYING
 
-                // Decidimos el texto visible según el estado de la celda.
-                val label = when {
-                    !cell.isRevealed -> "■"           // Celda cerrada más realista
-                    cell.isMine -> "💣"               // Mina revelada
-                    cell.adjacentMines == 0 -> ""     // Sin minas alrededor, no mostramos nada
-                    else -> cell.adjacentMines.toString() // Mostramos el número
-                }
+            // Decido qué texto mostrar según el estado de la casilla
+            val label = when {
 
-                CellButton(
-                    label = label,
-                    isRevealed = cell.isRevealed,  // Para animar solo cuando se revela.
-                    onClick = { onEvent(GameEvent.CellPressed(r, c)) },
-                    enabled = enabledCell
-                )
+                // Si tiene bandera y no está revelada muestro bandera
+                cell.hasFlag && !cell.isRevealed -> "🚩"
+
+                // Si está cerrada muestro el bloque
+                !cell.isRevealed -> "■"
+
+                // Si es mina y está revelada muestro la bomba
+                cell.isMine -> "💣"
+
+                // Si no tiene minas alrededor no muestro nada
+                cell.adjacentMines == 0 -> ""
+
+                // Si tiene minas alrededor muestro el número
+                else -> cell.adjacentMines.toString()
             }
+
+            // Dibujo la casilla y le paso sus coordenadas reales
+            CellButton(
+                label = label,
+                isRevealed = cell.isRevealed,
+                enabled = enabledCell,
+                onClick = {
+                    onEvent(GameEvent.CellPressed(cell.row, cell.col))
+                },
+                onLongClick = {
+                    onEvent(GameEvent.CellLongPressed(cell.row, cell.col))
+                }
+            )
         }
     }
 }
 
-// Botón individual de cada celda, con animación al revelarse.
-// Recibe el texto a mostrar, si la celda está revelada, la función a ejecutar al hacer click y si el botón está habilitado.
-// La animación hace un pequeño "pop" al revelar la celda
+// Dibuja una casilla individual del tablero
+// Detecta pulsación normal para abrir y pulsación larga para bandera
+// También aplica una pequeña animación al revelarse
 @Composable
 private fun CellButton(
     label: String,
     isRevealed: Boolean,
+    enabled: Boolean,
     onClick: () -> Unit,
-    enabled: Boolean
+    onLongClick: () -> Unit
 ) {
-    // Valor de escala que vamos a animar cuando la celda se revela.
+
+    // Valor de escala que uso para la animación al revelar
+    // Inicialmente es 1 (tamaño normal) y luego lo cambio para hacer el efecto pop
     val scaleAnim = remember { Animatable(1f) }
 
-    // Cuando la celda pasa a revelada, hago el pop: 0.9 -> 1.05 -> 1.0
+    // Cuando la casilla pasa a revelada hago un pequeño efecto pop
     LaunchedEffect(isRevealed) {
         if (isRevealed) {
+            // Hago un pequeño "pop" al revelar: primero achico un poco, luego agrando y
+            // luego vuelvo a tamaño normal
             scaleAnim.snapTo(0.9f)
             scaleAnim.animateTo(1.30f, animationSpec = tween(120))
             scaleAnim.animateTo(1.10f, animationSpec = tween(120))
         }
     }
 
-    Button(
+    // Uso un Box para dibujar la casilla en lugar de Button
+    Box(
         modifier = Modifier
+            // Tamaño fijo de cada celda
             .size(56.dp)
-            .scale(scaleAnim.value),
-        onClick = onClick,
-        enabled = enabled
+            // Aplico la animación de escala
+            .scale(scaleAnim.value)
+            // Borde de la casilla
+            .border(
+                border = BorderStroke(1.dp, Color.DarkGray),
+                shape = MaterialTheme.shapes.small
+            )
+
+            // Color según si está revelada o no
+            .background(
+                color = if (isRevealed) Color(0xFFE0E0E0)
+                else MaterialTheme.colorScheme.primary,
+                shape = MaterialTheme.shapes.small
+            )
+
+            // Detecto click normal y pulsación larga
+            .combinedClickable(
+                enabled = enabled,
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
+        // Centro el contenido dentro de la casilla
+        contentAlignment = Alignment.Center
     ) {
-        Text(text = label)
+
+        // Texto de la casilla (mina, número, bandera o vacío)
+        Text(
+            text = label,
+            // Cambio color según esté revelada o no
+            color = if (isRevealed) Color.Black else Color.White
+        )
     }
 }

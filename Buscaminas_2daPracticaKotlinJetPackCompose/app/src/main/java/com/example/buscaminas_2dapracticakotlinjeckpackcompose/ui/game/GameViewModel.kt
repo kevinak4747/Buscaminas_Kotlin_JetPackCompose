@@ -4,6 +4,11 @@ import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlin.random.Random
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 // ViewModel del juego.
 // Aquí irá la lógica de la partida y el estado reactivo.
@@ -15,20 +20,61 @@ class GameViewModel : ViewModel(){
     // Estado público de solo lectura para que la UI lo observe.
     val uiState: StateFlow<GameUiState> = _uiState
 
+    // Job que uso para controlar el cronómetro
+    private var timerJob: Job? = null
+
     init {
         // Al crear el ViewModel, dejamos el juego listo para empezar.
         startNewGame()
     }
-    // Punto único de entrada de eventos desde la UI.
-    // La UI no llama directamente a funciones internas.
+
+    // Punto único de entrada de eventos desde la UI
+    // La UI no llama directamente a funciones internas
     fun onEvent(event: GameEvent) {
         when (event) {
+            // Si el usuario pulsa una celda, llamamos a la función que maneja esa lógica de abrir
+            // casillas, perder o ganar.
             is GameEvent.CellPressed -> onCellPressed(event.row, event.col)
+            // Si el usuario hace pulsación larga, llamamos a la función que maneja esa lógica de poner
+            // o quitar bandera.
+            is GameEvent.CellLongPressed -> onCellLongPressed(event.row, event.col)
+            // Si el usuario pulsa el botón de reiniciar, empezamos una partida nueva.
             GameEvent.RestartPressed -> startNewGame()
         }
     }
 
-    // Función interna cuando el usuario pulsa una celda.
+    // Arranca el cronómetro de la partida
+    private fun startTimer() {
+
+        // Si ya hay un cronómetro corriendo, lo paro antes de crear otro
+        stopTimer()
+
+        timerJob = viewModelScope.launch {
+
+            // Mientras esta coroutine siga viva, voy sumando segundos
+            while (isActive) {
+                delay(1000)
+
+                val current = _uiState.value
+
+                // Solo sumo tiempo si la partida sigue en curso
+                if (current.status == GameStatus.PLAYING) {
+                    _uiState.value = current.copy(
+                        elapsedSeconds = current.elapsedSeconds + 1
+                    )
+                }
+            }
+        }
+    }
+
+    // Detiene el cronómetro actual si existe
+    private fun stopTimer() {
+        timerJob?.cancel()
+        timerJob = null
+    }
+
+    // Función interna cuando el usuario pulsa una celda, se utiliza para manejar la lógica
+    // de abrir casillas, perder o ganar.
     private fun onCellPressed(row: Int, col: Int) {
 
         // Leemos el estado actual.
@@ -40,7 +86,8 @@ class GameViewModel : ViewModel(){
         // Obtenemos la celda que el usuario ha pulsado.
         val pressedCell = current.board[row][col]
 
-        if (pressedCell.isRevealed) return
+        // Si la casilla ya está revelada o tiene bandera, no hago nada
+        if (pressedCell.isRevealed || pressedCell.hasFlag) return
 
         // Si es una mina, perdemos y revelamos todo el tablero.
         if (pressedCell.isMine) {
@@ -57,6 +104,8 @@ class GameViewModel : ViewModel(){
 
                 revealedBoard.add(newRow)
             }
+            // Si pulsa una mina, detengo el cronómetro
+            stopTimer()
 
             _uiState.value = current.copy(
                 status = GameStatus.LOST,
@@ -66,29 +115,24 @@ class GameViewModel : ViewModel(){
             return
         }
 
-        // Creamos un tablero nuevo copiando el actual.
-        // Solo cambiamos la celda que se ha pulsado.
-        val newBoard = mutableListOf<List<CellUi>>()
+        // Creo una copia mutable del tablero para poder modificarlo
+        val mutableBoard = current.board.map { it.toMutableList() }.toMutableList()
 
-        for (r in 0 until current.rows) {
-            val newRow = mutableListOf<CellUi>()
+        // Abro casillas en cascada si es necesario
+        revealCells(row, col, mutableBoard)
 
-            for (c in 0 until current.cols) {
-                val cell = current.board[r][c]
+        // Convierto el tablero de nuevo a inmutable
+        // el it.toList() es para convertir cada fila mutable a inmutable, el map lo hace con todas
+        // las filas, luego el toList() final convierte la lista de filas a inmutable también.
+        val newBoard = mutableBoard.map { it.toList() }
 
-                // Si es la celda pulsada, la marcamos como revelada.
-                if (r == row && c == col) {
-                    newRow.add(cell.copy(isRevealed = true))
-                } else {
-                    // Las demás celdas se quedan igual.
-                    newRow.add(cell)
-                }
-            }
-
-            newBoard.add(newRow)
-        }
         // Comprobamos si ya se han revelado todas las no-mina.
         val won = checkWin(newBoard)
+
+        // Si ya ha ganado, detengo el cronómetro
+        if (won) {
+            stopTimer()
+        }
 
         // Actualizamos el estado: si ganó, cambiamos status.
         _uiState.value = current.copy(
@@ -98,7 +142,7 @@ class GameViewModel : ViewModel(){
 
     }
     // Función para generar posiciones aleatorias de minas sin repetir pr eso las creo en un Set Para
-    // asegurarme de que no se repiten.
+    // asegurarme de que no se repiten , le pasamos el número de filas, columnas y minas que queremos generar
     private fun generateRandomMines(
         rows: Int,
         cols: Int,
@@ -126,56 +170,89 @@ class GameViewModel : ViewModel(){
     }
 
 
-    // Inicia una partida nueva.
+    // Inicia una partida nueva
     private fun startNewGame() {
-        // Definimos el tamaño del tablero de filas y columnas
-        val rows = 3
-        val cols = 3
+        // Si había un cronómetro anterior, lo paro antes de empezar otra partida
+        stopTimer()
 
-        // Definimos la cantidad de minas que queremos en el tablero y la generamos aleatoriamente.
-        val mineCount = 2
+        // Defino un tablero de 8x8
+        val rows = 8
+        val cols = 8
+
+        // Defino la cantidad de minas que tendrá la partida
+        val mineCount = 8
+
+        // Genero posiciones aleatorias de minas sin repetir en una lista de coordenadas (fila, columna)
         val mines = generateRandomMines(rows, cols, mineCount)
 
-        // Aquí creo el tablero sabiendo dónde están las minas
+        // Construyo el tablero sabiendo dónde están las minas
         val board = buildBoardWithMines(rows, cols, mines)
-        // Actualizamos el estado completo que verá la UI.
+
+        // Actualizo el estado completo que verá la UI
         _uiState.value = GameUiState(
             rows = rows,
             cols = cols,
+            mineCount = mineCount,
             status = GameStatus.PLAYING,
             elapsedSeconds = 0,
             board = board
         )
+
+        // Arranco el cronómetro de la partida nueva
+        startTimer()
     }
 
+    // Construye el tablero sabiendo dónde están las minas
+    // Devuelve una lista de filas y cada fila contiene casillas
     private fun buildBoardWithMines(
         rows: Int,
         cols: Int,
         mines: Set<Pair<Int, Int>>
     ): List<List<CellUi>> {
 
+        // Creo la estructura del tablero vacía
         val board = mutableListOf<List<CellUi>>()
 
+        // Recorro todas las filas
         for (r in 0 until rows) {
+
+            // Creo una fila nueva
             val rowList = mutableListOf<CellUi>()
 
+            // Recorro todas las columnas de esa fila
             for (c in 0 until cols) {
+
+                // Compruebo si en esta posición hay una mina
                 val isMine = mines.contains(Pair(r, c))
 
+                // Creo la casilla con toda su información
                 rowList.add(
                     CellUi(
                         row = r,
                         col = c,
+
+                        // Indico si esta casilla tiene mina
                         isMine = isMine,
-                        adjacentMines = if (isMine) 0 else countAdjacentMines(r, c, mines),
-                        isRevealed = false
+
+                        // Si no es mina, calculo cuántas minas hay alrededor
+                        // Si es mina, no hace falta calcular nada
+                        adjacentMines = if (isMine) 0
+                        else countAdjacentMines(r, c, mines),
+
+                        // Al iniciar la partida ninguna casilla está revelada
+                        isRevealed = false,
+
+                        // Al iniciar la partida ninguna casilla tiene bandera
+                        hasFlag = false
                     )
                 )
             }
 
+            // Añado la fila completa al tablero
             board.add(rowList)
         }
 
+        // Devuelvo el tablero ya construido
         return board
     }
 
@@ -214,6 +291,69 @@ class GameViewModel : ViewModel(){
             }
         }
         return true
+    }
+
+    // Abre casillas en cascada si están vacías
+    private fun revealCells(
+        row: Int,
+        col: Int,
+        board: MutableList<MutableList<CellUi>>
+    ) {
+
+        // Compruebo que la posición está dentro del tablero
+        if (row !in board.indices || col !in board[0].indices) return
+
+        val cell = board[row][col]
+
+        // Si ya está revelada o tiene bandera, no hago nada
+        if (cell.isRevealed || cell.hasFlag) return
+
+        // Marco la casilla como revelada
+        board[row][col] = cell.copy(isRevealed = true)
+
+        // Si tiene número, no sigo expandiendo
+        if (cell.adjacentMines > 0) return
+
+        // Si es vacía, abro todas las vecinas
+        for (dr in -1..1) {
+            for (dc in -1..1) {
+
+                if (dr == 0 && dc == 0) continue
+
+                revealCells(row + dr, col + dc, board)
+            }
+        }
+    }
+
+    // Función interna cuando el usuario hace pulsación larga en una celda
+    private fun onCellLongPressed(row: Int, col: Int) {
+
+        // Leo el estado actual
+        val current = _uiState.value
+
+        // Si la partida no está en curso, no permito poner banderas
+        if (current.status != GameStatus.PLAYING) return
+
+        val cell = current.board[row][col]
+
+        // Si la casilla ya está revelada, no se puede marcar con bandera
+        if (cell.isRevealed) return
+
+        // Creo una copia mutable del tablero para modificar solo esa casilla
+        val mutableBoard = current.board.map { it.toMutableList() }.toMutableList()
+
+        // Cambio el estado de la bandera
+        mutableBoard[row][col] = cell.copy(
+            hasFlag = !cell.hasFlag
+        )
+
+        // Convierto el tablero otra vez a inmutable
+        val newBoard = mutableBoard.map { it.toList() }
+
+        // Actualizo el estado con el nuevo tablero
+        _uiState.value = current.copy(
+            board = newBoard
+        )
     }
 
 
