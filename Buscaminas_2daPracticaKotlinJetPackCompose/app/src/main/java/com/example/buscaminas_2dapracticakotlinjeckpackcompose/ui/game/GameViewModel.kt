@@ -40,6 +40,15 @@ class GameViewModel : ViewModel(){
             is GameEvent.CellLongPressed -> onCellLongPressed(event.row, event.col)
             // Si el usuario pulsa el botón de reiniciar, empezamos una partida nueva.
             GameEvent.RestartPressed -> startNewGame()
+            // Si la app pierde el foco, pausamos la partida, esto es importante para que el cronómetro
+            // no siga corriendo mientras el usuario no está jugando
+            GameEvent.AppPaused -> pauseGame()
+            // Si el usuario pulsa el botón de pausa manual, pausamos la partida, esto es importante
+            // para que el cronómetro no siga corriendo mientras el usuario no está jugando
+            GameEvent.PausePressed -> pauseGame()
+            // Si el usuario vuelve a la app después de una pausa, reanudamos la partida
+            // Esto es importante para que el cronómetro vuelva a funcionar y el usuario pueda seguir jugando
+            GameEvent.ResumePressed -> resumeGame()
         }
     }
 
@@ -195,6 +204,7 @@ class GameViewModel : ViewModel(){
             mineCount = mineCount,
             status = GameStatus.PLAYING,
             elapsedSeconds = 0,
+            showPauseOverlay = false,
             board = board
         )
 
@@ -314,12 +324,19 @@ class GameViewModel : ViewModel(){
         // Si tiene número, no sigo expandiendo
         if (cell.adjacentMines > 0) return
 
-        // Si es vacía, abro todas las vecinas
+        // Si la casilla está vacía, abro también las casillas vecinas
+        // y si alguna vecina también está vacía, sigo abriendo sus vecinas
+        // Esto hace el efecto de expansión automática típico del Buscaminas ya que es una función recursiva que se
+        // llama a sí misma para abrir las casillas vecinas de las casillas vacías.
+        //for (dr in -1..1) es para recorrer las filas vecinas, desde la fila anterior (row-1) hasta la fila siguiente
+        // (row+1)
         for (dr in -1..1) {
+            //for (dc in -1..1) es para recorrer las columnas vecinas, desde la columna anterior (col-1) hasta
+            // la columna siguiente (col+1)
             for (dc in -1..1) {
-
+                // Saltamos la propia celda (0,0) para no entrar en un bucle infinito de llamarse a sí misma.
                 if (dr == 0 && dc == 0) continue
-
+                // Llamo recursivamente para abrir la casilla vecina.
                 revealCells(row + dr, col + dc, board)
             }
         }
@@ -354,6 +371,38 @@ class GameViewModel : ViewModel(){
         _uiState.value = current.copy(
             board = newBoard
         )
+    }
+
+    // Pausa la partida cuando la app pierde el foco
+    private fun pauseGame() {
+        val current = _uiState.value
+
+        // Solo pauso si la partida sigue en curso
+        if (current.status != GameStatus.PLAYING) return
+
+        stopTimer()
+
+        _uiState.value = current.copy(
+            status = GameStatus.PAUSED,
+            // Activo la capa de pausa para que el usuario pueda reanudar la partida
+            showPauseOverlay = true
+        )
+    }
+
+    // Reanuda la partida cuando el usuario pulsa continuar
+    private fun resumeGame() {
+        val current = _uiState.value
+
+        // Solo reanudo si estaba pausada
+        if (current.status != GameStatus.PAUSED) return
+
+        _uiState.value = current.copy(
+            status = GameStatus.PLAYING,
+            // Oculto la capa de pausa porque el juego vuelve a estar activo
+            showPauseOverlay = false
+        )
+
+        startTimer()
     }
 
 

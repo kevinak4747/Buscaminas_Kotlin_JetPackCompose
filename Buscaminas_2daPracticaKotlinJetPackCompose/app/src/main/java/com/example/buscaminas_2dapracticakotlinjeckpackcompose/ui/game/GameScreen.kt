@@ -6,7 +6,6 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,6 +28,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.zIndex
 
 // GameScreen es una pantalla "tonta":
 // solo dibuja el estado y envía eventos al ViewModel.
@@ -37,7 +38,6 @@ fun GameScreen(
     uiState: GameUiState,
     onEvent: (GameEvent) -> Unit
 ) {
-
     // Decido el color objetivo según el estado del juego.
     val targetColor = when (uiState.status) {
         GameStatus.WON -> Color(0xFFB9F6CA)   // Verde suave
@@ -52,37 +52,136 @@ fun GameScreen(
     )
 
 
-    Column(
+    // Uso un Box para poder dibujar la pantalla normal y, si hace falta, una capa encima
+    Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp)
-            .background(animatedBackgroundColor),  // Aplico el color animado al fondo de la pantalla, en caso de ganar o perder se animará el fondo al color correspondiente.
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .background(
+                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                    colors = listOf(
+                        Color(0xFFF8FAFC),
+                        Color(0xFFEDE7F6)
+                    )
+                )
+            )
+    ) {
+        // Esta capa añade un color suave encima del fondo cuando se gana o se pierde
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(
+                    animatedBackgroundColor.copy(
+                        alpha = if (
+                            uiState.status == GameStatus.WON ||
+                            uiState.status == GameStatus.LOST
+                        ) 0.35f else 0f
+                    )
+                )
+        )
+
+
+        // Contenido principal de la pantalla
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+
+            // Título de pantalla.
+            Text(
+                text = "Buscaminas",
+                style = MaterialTheme.typography.headlineMedium
+            )
+
+            // Mostramos el estado actual de la partida.
+            Text(text = "Estado: ${uiState.status}")
+
+            // Muestro el tiempo actual de la partida en segundos
+            Text(text = "Tiempo: ${uiState.elapsedSeconds} s")
+
+            // Agrupo los botones de acción de la partida en una fila
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+                // Botón para reiniciar la partida
+                // Solo lo permito si la partida está en curso
+                Button(
+                    onClick = { onEvent(GameEvent.RestartPressed) },
+                    enabled = uiState.status == GameStatus.PLAYING
+                ) {
+                    Text(text = "Reiniciar")
+                }
+
+                // Botón para pausar manualmente la partida
+                // Solo lo permito si la partida está en curso
+                Button(
+                    onClick = { onEvent(GameEvent.PausePressed) },
+                    enabled = uiState.status == GameStatus.PLAYING
+                ) {
+                    Text(text = "Pausar")
+                }
+            }
+
+            // Dibujo el tablero del juego usando un LazyVerticalGrid
+            Board(
+                uiState = uiState,
+                onEvent = onEvent
+            )
+        }
+        // Si la partida está en pausa, dibujo una capa encima de la pantalla
+        if (uiState.showPauseOverlay) {
+            PauseOverlay(
+                onResumeClick = {
+                    // Cuando el usuario pulsa reanudar, mando el evento al ViewModel
+                    onEvent(GameEvent.ResumePressed)
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun PauseOverlay(
+    // función que se llama cuando el usuario pulsa el botón de reanudar
+    onResumeClick: () -> Unit
+) {
+
+    // Capa que cubre toda la pantalla para bloquear la interacción con el juego
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background),
+        contentAlignment = Alignment.Center
     ) {
 
-        // Título de pantalla.
-        Text(
-            text = "Buscaminas",
-            style = MaterialTheme.typography.headlineMedium
-        )
+        // Contenedor central con el mensaje de pausa y el botón
+        Column(
+            modifier = Modifier
+                .background(
+                    color = Color.White,
+                    shape = MaterialTheme.shapes.medium
+                )
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
 
-        // Mostramos el estado actual de la partida.
-        Text(text = "Estado: ${uiState.status}")
+            // Texto que indica al usuario que la partida está pausada
+            Text(
+                text = "Partida en pausa",
+                style = MaterialTheme.typography.titleLarge
+            )
 
-        // Muestro el tiempo actual de la partida en segundos
-        Text(text = "Tiempo: ${uiState.elapsedSeconds} s")
-
-        // Botón para reiniciar (manda evento al ViewModel).
-        Button(onClick = { onEvent(GameEvent.RestartPressed) }) {
-            Text(text = "Reiniciar")
+            // Botón para reanudar la partida
+            // Al pulsarlo se lanza el evento hacia el ViewModel
+            Button(onClick = onResumeClick) {
+                Text(text = "Reanudar")
+            }
         }
-
-        // Tablero 8x8 con 8 minas, se dibuja con un LazyVerticalGrid.
-        Board(
-            uiState = uiState,
-            onEvent = onEvent
-        )
     }
 }
 
@@ -99,47 +198,56 @@ private fun Board(
     // Esto me permite pintar todas las celdas dentro del grid
     val flatBoard = uiState.board.flatten()
 
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(uiState.cols),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    // Añado margen arriba y lateral para que el tablero respire y no quede pegado
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(top = 20.dp, start = 4.dp, end = 4.dp)
     ) {
-        items(flatBoard) { cell ->
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(uiState.cols),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(top = 6.dp)
+        ) {
+            items(flatBoard) { cell ->
 
-            // Solo permito interactuar si la partida sigue en curso
-            val enabledCell = uiState.status == GameStatus.PLAYING
+                // Solo permito interactuar si la partida sigue en curso
+                val enabledCell = uiState.status == GameStatus.PLAYING
 
-            // Decido qué texto mostrar según el estado de la casilla
-            val label = when {
+                // Decido qué texto mostrar según el estado de la casilla
+                val label = when {
 
-                // Si tiene bandera y no está revelada muestro bandera
-                cell.hasFlag && !cell.isRevealed -> "🚩"
+                    // Si tiene bandera y no está revelada muestro bandera
+                    cell.hasFlag && !cell.isRevealed -> "🚩"
 
-                // Si está cerrada muestro el bloque
-                !cell.isRevealed -> "■"
+                    // Si está cerrada muestro el bloque
+                    !cell.isRevealed -> "■"
 
-                // Si es mina y está revelada muestro la bomba
-                cell.isMine -> "💣"
+                    // Si es mina y está revelada muestro la bomba
+                    cell.isMine -> "💣"
 
-                // Si no tiene minas alrededor no muestro nada
-                cell.adjacentMines == 0 -> ""
+                    // Si no tiene minas alrededor no muestro nada
+                    cell.adjacentMines == 0 -> ""
 
-                // Si tiene minas alrededor muestro el número
-                else -> cell.adjacentMines.toString()
-            }
-
-            // Dibujo la casilla y le paso sus coordenadas reales
-            CellButton(
-                label = label,
-                isRevealed = cell.isRevealed,
-                enabled = enabledCell,
-                onClick = {
-                    onEvent(GameEvent.CellPressed(cell.row, cell.col))
-                },
-                onLongClick = {
-                    onEvent(GameEvent.CellLongPressed(cell.row, cell.col))
+                    // Si tiene minas alrededor muestro el número
+                    else -> cell.adjacentMines.toString()
                 }
-            )
+
+                // Dibujo la casilla y le paso sus coordenadas reales
+                CellButton(
+                    label = label,
+                    adjacentMines = cell.adjacentMines,
+                    isRevealed = cell.isRevealed,
+                    enabled = enabledCell,
+                    onClick = {
+                        onEvent(GameEvent.CellPressed(cell.row, cell.col))
+                    },
+                    onLongClick = {
+                        onEvent(GameEvent.CellLongPressed(cell.row, cell.col))
+                    }
+                )
+            }
         }
     }
 }
@@ -150,45 +258,57 @@ private fun Board(
 @Composable
 private fun CellButton(
     label: String,
+    adjacentMines: Int,
     isRevealed: Boolean,
     enabled: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit
-) {
+){
 
     // Valor de escala que uso para la animación al revelar
     // Inicialmente es 1 (tamaño normal) y luego lo cambio para hacer el efecto pop
     val scaleAnim = remember { Animatable(1f) }
 
-    // Cuando la casilla pasa a revelada hago un pequeño efecto pop
+    // Cuando la casilla pasa a revelada hago un pequeño efecto pop más suave
     LaunchedEffect(isRevealed) {
         if (isRevealed) {
-            // Hago un pequeño "pop" al revelar: primero achico un poco, luego agrando y
-            // luego vuelvo a tamaño normal
-            scaleAnim.snapTo(0.9f)
-            scaleAnim.animateTo(1.30f, animationSpec = tween(120))
-            scaleAnim.animateTo(1.10f, animationSpec = tween(120))
+            // Hago una animación pequeña para que no se monte con las casillas vecinas
+            scaleAnim.snapTo(0.96f)
+            scaleAnim.animateTo(1.08f, animationSpec = tween(100))
+            scaleAnim.animateTo(1f, animationSpec = tween(100))
         }
+    }
+
+
+    // Decido el color del número según la cantidad de minas vecinas
+    // Esto lo calculo siempre, pero solo se verá cuando la casilla esté revelada
+    val numberColor = when (adjacentMines) {
+        1 -> Color(0xFF2563EB) // Azul
+        2 -> Color(0xFF16A34A) // Verde
+        3 -> Color(0xFFDC2626) // Rojo
+        4 -> Color(0xFF7C3AED) // Morado
+        else -> Color(0xFF111827) // Oscuro
     }
 
     // Uso un Box para dibujar la casilla en lugar de Button
     Box(
         modifier = Modifier
             // Tamaño fijo de cada celda
-            .size(56.dp)
+            .size(52.dp)
             // Aplico la animación de escala
             .scale(scaleAnim.value)
+            // Si la casilla está revelada, la dibujo por encima para que no se vea cortada
+            .zIndex(if (isRevealed) 1f else 0f)
             // Borde de la casilla
             .border(
-                border = BorderStroke(1.dp, Color.DarkGray),
-                shape = MaterialTheme.shapes.small
+                BorderStroke(1.dp, Color(0xFFD8CCB8)),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
             )
 
             // Color según si está revelada o no
             .background(
-                color = if (isRevealed) Color(0xFFE0E0E0)
-                else MaterialTheme.colorScheme.primary,
-                shape = MaterialTheme.shapes.small
+                color = if (isRevealed) Color(0xFFF8F4EC) else Color(0xFF566C9E),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
             )
 
             // Detecto click normal y pulsación larga
@@ -204,8 +324,13 @@ private fun CellButton(
         // Texto de la casilla (mina, número, bandera o vacío)
         Text(
             text = label,
-            // Cambio color según esté revelada o no
-            color = if (isRevealed) Color.Black else Color.White
+            // Si la casilla está cerrada uso blanco, si está abierta decido el color según su contenido
+            color = when {
+                !isRevealed -> Color.White
+                label == "💣" -> Color.Black
+                label == "🚩" -> Color.Black
+                else -> numberColor
+            }
         )
     }
 }

@@ -19,4 +19,13 @@ sealed interface GameEvent {
 
     // El usuario pulsa el botón de reiniciar partida
     data object RestartPressed : GameEvent
+
+    // La app pierde el foco y la partida debe pausarse
+    data object AppPaused : GameEvent
+
+    // El usuario pulsa el botón de pausa manual
+    data object PausePressed : GameEvent
+
+    // El usuario pulsa reanudar después de volver a la app
+    data object ResumePressed : GameEvent
 }

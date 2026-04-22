@@ -20,6 +20,9 @@ data class GameUiState(
     // Tiempo transcurrido en segundos
     val elapsedSeconds: Int = 0,
 
+    // Indica si se debe mostrar el botón de pausar o reanudar
+    val showPauseOverlay: Boolean = false,
+
     // Tablero del juego
     // Lista de filas y cada fila contiene casillas
     val board: List<List<CellUi>> = emptyList()
@@ -29,6 +32,7 @@ data class GameUiState(
 // Representa el estado general del juego
 enum class GameStatus {
     PLAYING,
+    PAUSED,
     WON,
     LOST
 }
