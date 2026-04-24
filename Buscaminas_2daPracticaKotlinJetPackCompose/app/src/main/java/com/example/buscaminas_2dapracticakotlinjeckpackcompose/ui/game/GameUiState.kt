@@ -12,7 +12,7 @@ data class GameUiState(
     val cols: Int = 8,
 
     // Número total de minas en el tablero
-    val mineCount: Int = 10,
+    val mineCount: Int = 6,
 
     // Estado actual de la partida
     val status: GameStatus = GameStatus.PLAYING,
@@ -25,7 +25,10 @@ data class GameUiState(
 
     // Tablero del juego
     // Lista de filas y cada fila contiene casillas
-    val board: List<List<CellUi>> = emptyList()
+    val board: List<List<CellUi>> = emptyList(),
+
+    // Guarda el efecto de sonido que la UI debe reproducir en ese momento
+    val pendingSoundEffect: GameSoundEffect? = null
 )
 
 

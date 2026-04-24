@@ -28,4 +28,7 @@ sealed interface GameEvent {
 
     // El usuario pulsa reanudar después de volver a la app
     data object ResumePressed : GameEvent
+
+    // La UI le avisa al ViewModel que ya ha reproducido el efecto de sonido pendiente
+    data object SoundEffectConsumed : GameEvent
 }

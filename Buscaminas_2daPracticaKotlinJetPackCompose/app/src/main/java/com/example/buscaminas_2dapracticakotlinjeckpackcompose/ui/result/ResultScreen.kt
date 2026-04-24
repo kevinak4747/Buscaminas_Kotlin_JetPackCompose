@@ -10,63 +10,60 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import com.example.buscaminas_2dapracticakotlinjeckpackcompose.ui.components.AppBackground
+
+
 
 // Esta pantalla representa el resultado final de la partida.
 // La utilizo como cuarta pantalla del proyecto para cumplir el requisito
-
-
 @Composable
 fun ResultScreen(
     // title recibe el texto que se mostrará arriba.
     // Puede ser "Has ganado" o "Has perdido".
     title: String,
 
-    // onPlayAgain es una función que se ejecuta cuando el usuario
-    // quiere empezar una nueva partida.
+    // onPlayAgain se ejecuta cuando el usuario quiere empezar una nueva partida
     onPlayAgain: () -> Unit,
 
-    // onBackToMenu es la función que permite volver a la pantalla anterior
+    // onBackToMenu permite volver al menú o pantalla anterior
     onBackToMenu: () -> Unit
 ) {
 
-    // Column organiza los elementos en vertical.
-    // Es el contenedor principal de la pantalla.
-    Column(
+    // Uso el mismo fondo que en el resto de pantallas para mantener consistencia
+    AppBackground {
 
-        // fillMaxSize ocupa toda la pantalla.
-        // padding añade espacio interior para que no quede pegado a los bordes.
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
+        // Column organiza los elementos en vertical
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
 
-        // spacedBy separa los elementos verticalmente.
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-
-        // Centra horizontalmente los elementos.
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-
-        // Mostramos el título recibido como parámetro.
-        // Uso un estilo headline para que destaque visualmente.
-        Text(
-            text = title,
-            style = MaterialTheme.typography.headlineMedium
-        )
-
-        // Botón para reiniciar la partida.
-        // Solo llama a la función recibida, no tiene lógica propia.
-        Button(
-            onClick = onPlayAgain
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Jugar otra")
-        }
 
-        // Botón para volver al menú o pantalla anterior.
-        Button(
-            onClick = onBackToMenu
-        ) {
-            Text("Volver al menú")
+            // Muestro el título del resultado (ganar o perder)
+            Text(
+                text = title,
+                style = MaterialTheme.typography.headlineMedium,
+                color = Color.White
+            )
+
+            // Botón para empezar otra partida
+            Button(
+                onClick = onPlayAgain
+            ) {
+                Text("Jugar otra")
+            }
+
+            // Botón para volver al menú
+            Button(
+                onClick = onBackToMenu
+            ) {
+                Text("Volver al menú")
+            }
         }
     }
 }

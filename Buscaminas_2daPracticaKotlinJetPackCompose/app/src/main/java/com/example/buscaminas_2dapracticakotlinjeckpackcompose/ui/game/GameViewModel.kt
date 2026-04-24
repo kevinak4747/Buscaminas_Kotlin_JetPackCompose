@@ -49,6 +49,9 @@ class GameViewModel : ViewModel(){
             // Si el usuario vuelve a la app después de una pausa, reanudamos la partida
             // Esto es importante para que el cronómetro vuelva a funcionar y el usuario pueda seguir jugando
             GameEvent.ResumePressed -> resumeGame()
+            // Si la UI le avisa que ya ha reproducido el efecto de sonido pendiente, lo limpiamos
+            // del estado para no reproducirlo otra vez
+            GameEvent.SoundEffectConsumed -> clearPendingSoundEffect()
         }
     }
 
@@ -118,7 +121,8 @@ class GameViewModel : ViewModel(){
 
             _uiState.value = current.copy(
                 status = GameStatus.LOST,
-                board = revealedBoard
+                board = revealedBoard,
+                pendingSoundEffect = GameSoundEffect.BOMB
             )
 
             return
@@ -143,10 +147,18 @@ class GameViewModel : ViewModel(){
             stopTimer()
         }
 
+        // Decido qué sonido toca según el resultado de la jugada
+        val soundEffect = when {
+            won -> GameSoundEffect.WIN
+            pressedCell.adjacentMines == 0 -> GameSoundEffect.EXPANSION
+            else -> GameSoundEffect.REVEAL
+        }
+
         // Actualizamos el estado: si ganó, cambiamos status.
         _uiState.value = current.copy(
             status = if (won) GameStatus.WON else GameStatus.PLAYING,
-            board = newBoard
+            board = newBoard,
+            pendingSoundEffect = soundEffect
         )
 
     }
@@ -183,13 +195,11 @@ class GameViewModel : ViewModel(){
     private fun startNewGame() {
         // Si había un cronómetro anterior, lo paro antes de empezar otra partida
         stopTimer()
-
-        // Defino un tablero de 8x8
-        val rows = 8
-        val cols = 8
-
-        // Defino la cantidad de minas que tendrá la partida
-        val mineCount = 8
+        // Leo el número de filas, columnas y minas del estado actual para crear el nuevo tablero proveniente del
+        //gameUiState
+        val rows = _uiState.value.rows
+        val cols = _uiState.value.cols
+        val mineCount = _uiState.value.mineCount
 
         // Genero posiciones aleatorias de minas sin repetir en una lista de coordenadas (fila, columna)
         val mines = generateRandomMines(rows, cols, mineCount)
@@ -369,7 +379,8 @@ class GameViewModel : ViewModel(){
 
         // Actualizo el estado con el nuevo tablero
         _uiState.value = current.copy(
-            board = newBoard
+            board = newBoard,
+            pendingSoundEffect = GameSoundEffect.FLAG
         )
     }
 
@@ -403,6 +414,13 @@ class GameViewModel : ViewModel(){
         )
 
         startTimer()
+    }
+
+    // Limpio el sonido pendiente después de que la UI lo haya reproducido
+    private fun clearPendingSoundEffect() {
+        _uiState.value = _uiState.value.copy(
+            pendingSoundEffect = null
+        )
     }
 
 

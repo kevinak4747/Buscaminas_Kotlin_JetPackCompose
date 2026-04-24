@@ -30,6 +30,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.zIndex
+import com.example.buscaminas_2dapracticakotlinjeckpackcompose.ui.components.AppBackground
 
 // GameScreen es una pantalla "tonta":
 // solo dibuja el estado y envía eventos al ViewModel.
@@ -52,94 +53,100 @@ fun GameScreen(
     )
 
 
-    // Uso un Box para poder dibujar la pantalla normal y, si hace falta, una capa encima
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(
-                brush = androidx.compose.ui.graphics.Brush.verticalGradient(
-                    colors = listOf(
-                        Color(0xFFF8FAFC),
-                        Color(0xFFEDE7F6)
-                    )
-                )
-            )
-    ) {
-        // Esta capa añade un color suave encima del fondo cuando se gana o se pierde
+    // Uso el mismo fondo para toda la pantalla, así se mantiene consistente en todas las pantallas del juego
+    AppBackground {
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    animatedBackgroundColor.copy(
-                        alpha = if (
-                            uiState.status == GameStatus.WON ||
-                            uiState.status == GameStatus.LOST
-                        ) 0.35f else 0f
-                    )
-                )
-        )
-
-
-        // Contenido principal de la pantalla
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-
-            // Título de pantalla.
-            Text(
-                text = "Buscaminas",
-                style = MaterialTheme.typography.headlineMedium
+            // Esta capa añade un color suave encima del fondo cuando se gana o se pierde
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(
+                        animatedBackgroundColor.copy(
+                            alpha = if (
+                                uiState.status == GameStatus.WON ||
+                                uiState.status == GameStatus.LOST
+                            )   // Si el juego se ha ganado o perdido, aplico un color semitransparente para
+                                // destacar el resultado, si no, no aplico color (alpha 0)
+                                0.75f else 0f
+                        )
+                    )
             )
 
-            // Mostramos el estado actual de la partida.
-            Text(text = "Estado: ${uiState.status}")
 
-            // Muestro el tiempo actual de la partida en segundos
-            Text(text = "Tiempo: ${uiState.elapsedSeconds} s")
-
-            // Agrupo los botones de acción de la partida en una fila
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Contenido principal de la pantalla
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
 
-                // Botón para reiniciar la partida
-                // Solo lo permito si la partida está en curso
-                Button(
-                    onClick = { onEvent(GameEvent.RestartPressed) },
-                    enabled = uiState.status == GameStatus.PLAYING
+                // Título de pantalla.
+                // Lo pongo en blanco para que se vea bien sobre el fondo oscuro
+                Text(
+                    text = "Buscaminas",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White
+                )
+
+                // Muestro el estado actual de la partida
+                // También lo pongo en blanco para que no se pierda con el fondo
+                Text(
+                    text = "Estado: ${uiState.status}",
+                    color = Color.White
+                )
+
+                // Muestro el tiempo actual de la partida en segundos
+                Text(
+                    text = "Tiempo: ${uiState.elapsedSeconds} s",
+                    color = Color.White
+                )
+
+                // Agrupo los botones de acción de la partida en una fila
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = "Reiniciar")
+
+                    // Botón para reiniciar la partida
+                    // Solo lo permito si la partida está en curso
+                    Button(
+                        onClick = { onEvent(GameEvent.RestartPressed) },
+                        enabled = uiState.status == GameStatus.PLAYING
+                    ) {
+                        Text(text = "Reiniciar")
+                    }
+
+                    // Botón para pausar manualmente la partida
+                    // Solo lo permito si la partida está en curso
+                    Button(
+                        onClick = { onEvent(GameEvent.PausePressed) },
+                        enabled = uiState.status == GameStatus.PLAYING
+                    ) {
+                        Text(text = "Pausar")
+                    }
                 }
 
-                // Botón para pausar manualmente la partida
-                // Solo lo permito si la partida está en curso
-                Button(
-                    onClick = { onEvent(GameEvent.PausePressed) },
-                    enabled = uiState.status == GameStatus.PLAYING
-                ) {
-                    Text(text = "Pausar")
-                }
+                // Dibujo el tablero del juego usando un LazyVerticalGrid
+                Board(
+                    uiState = uiState,
+                    onEvent = onEvent
+                )
             }
-
-            // Dibujo el tablero del juego usando un LazyVerticalGrid
-            Board(
-                uiState = uiState,
-                onEvent = onEvent
-            )
-        }
-        // Si la partida está en pausa, dibujo una capa encima de la pantalla
-        if (uiState.showPauseOverlay) {
-            PauseOverlay(
-                onResumeClick = {
-                    // Cuando el usuario pulsa reanudar, mando el evento al ViewModel
-                    onEvent(GameEvent.ResumePressed)
-                }
-            )
+            // Si la partida está en pausa, dibujo una capa encima de la pantalla
+            if (uiState.showPauseOverlay) {
+                PauseOverlay(
+                    onResumeClick = {
+                        // Cuando el usuario pulsa reanudar, mando el evento al ViewModel
+                        onEvent(GameEvent.ResumePressed)
+                    }
+                )
+            }
         }
     }
 }
@@ -154,7 +161,7 @@ private fun PauseOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(Color.Black.copy(alpha = 0.65f)),
         contentAlignment = Alignment.Center
     ) {
 
