@@ -10,7 +10,7 @@ import com.example.buscaminas_2dapracticakotlinjeckpackcompose.ui.game.GameStatu
 // Importo LoginRoute para poder dibujar la pantalla de login y conectar la navegación.
 import com.example.buscaminas_2dapracticakotlinjeckpackcompose.ui.login.LoginRoute
 import com.example.buscaminas_2dapracticakotlinjeckpackcompose.ui.result.ResultRoute
-import com.example.buscaminas_2dapracticakotlinjeckpackcompose.ui.welcome.WelcomeScreen
+import com.example.buscaminas_2dapracticakotlinjeckpackcompose.ui.welcome.WelcomeRoute
 
 
 // Este archivo define el mapa de navegación de la app.
@@ -44,7 +44,7 @@ fun AppNavGraph(
         composable(NavRoutes.WELCOME) {
             // Aquí irá la pantalla Welcome()
             // Cuando el usuario pulsa empezar, navegamos a la pantalla del juego.
-            WelcomeScreen(
+            WelcomeRoute(
                 onNavigateToGame = {
                     navController.navigate(NavRoutes.GAME)
                 }

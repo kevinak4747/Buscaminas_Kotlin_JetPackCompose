@@ -40,6 +40,10 @@ android {
 }
 
 dependencies {
+    // Dependencias para Retrofit, una librería que nos permite hacer peticiones HTTP .
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    // Esta dependencia es un convertidor que permite transformar las respuestas JSON en objetos de Kotlin.
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
