@@ -37,7 +37,8 @@ import com.example.buscaminas_2dapracticakotlinjeckpackcompose.ui.components.App
 @Composable
 fun GameScreen(
     uiState: GameUiState,
-    onEvent: (GameEvent) -> Unit
+    onEvent: (GameEvent) -> Unit,
+    onBackToMenu: () -> Unit
 ) {
     // Decido el color objetivo según el estado del juego.
     val targetColor = when (uiState.status) {
@@ -130,6 +131,15 @@ fun GameScreen(
                     ) {
                         Text(text = "Pausar")
                     }
+
+                    // Botón para volver a la pantalla de bienvenida
+                    // Lo uso para salir de la partida y regresar al menú
+                    Button(
+                        onClick = onBackToMenu,
+                        enabled = uiState.status == GameStatus.PLAYING
+                    ) {
+                        Text(text = "Volver")
+                    }
                 }
 
                 // Dibujo el tablero del juego usando un LazyVerticalGrid
@@ -161,7 +171,7 @@ private fun PauseOverlay(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black.copy(alpha = 0.65f)),
+            .background(Color.Black.copy(alpha = 0.97f)),
         contentAlignment = Alignment.Center
     ) {
 

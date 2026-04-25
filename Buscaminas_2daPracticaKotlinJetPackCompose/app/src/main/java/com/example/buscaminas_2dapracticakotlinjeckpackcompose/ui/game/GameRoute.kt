@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import com.example.buscaminas_2dapracticakotlinjeckpackcompose.audio.BackgroundMusicPlayer
 import com.example.buscaminas_2dapracticakotlinjeckpackcompose.audio.GameSoundPlayer
+import com.example.buscaminas_2dapracticakotlinjeckpackcompose.vibration.GameVibrationPlayer
 
 // GameRoute conecta el ViewModel con la pantalla
 // Recoge el estado y pasa una función para enviar eventos
@@ -30,6 +31,10 @@ fun GameRoute(
 
     // Obtengo el contexto para crear objetos que necesitan acceso a Android
     val context = LocalContext.current
+
+    val vibrationPlayer = remember {
+        GameVibrationPlayer(context)
+    }
 
     // Obtengo el ciclo de vida de esta pantalla para reaccionar cuando la app se pausa o se reanuda
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -139,6 +144,7 @@ fun GameRoute(
                 // Si se pierde, reproduzco el sonido final de derrota
                 if (uiState.status == GameStatus.LOST) {
                     gameSoundPlayer.playLose()
+                    vibrationPlayer.vibrateOnLose()
                 }
 
                 // Espero unos segundos para que el jugador vea el resultado final
@@ -155,6 +161,8 @@ fun GameRoute(
         }
     }
 
+
+
     // Si empieza una partida nueva, reinicio la música desde el principio
     // Lo detecto cuando el tiempo vuelve a 0 y la partida está en curso
     LaunchedEffect(uiState.elapsedSeconds, uiState.status) {
@@ -167,6 +175,13 @@ fun GameRoute(
     // Dibujo la pantalla con el estado actual y la función para enviar eventos
     GameScreen(
         uiState = uiState,
-        onEvent = gameViewModel::onEvent
+        onEvent = gameViewModel::onEvent,
+        onBackToMenu = {
+            navController.navigate(NavRoutes.WELCOME) {
+                popUpTo(NavRoutes.WELCOME) {
+                    inclusive = true
+                }
+            }
+        }
     )
 }
