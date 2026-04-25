@@ -32,8 +32,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.zIndex
 import com.example.buscaminas_2dapracticakotlinjeckpackcompose.ui.components.AppBackground
 
-// GameScreen es una pantalla "tonta":
-// solo dibuja el estado y envía eventos al ViewModel.
+// Si todavía no hay tablero, no pinto la cuadrícula
 @Composable
 fun GameScreen(
     uiState: GameUiState,
@@ -82,7 +81,7 @@ fun GameScreen(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp),
+                    .padding(top = 72.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {

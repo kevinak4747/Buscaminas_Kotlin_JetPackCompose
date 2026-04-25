@@ -32,7 +32,7 @@ fun AppNavGraph(
         composable(NavRoutes.LOGIN) {
             // pantalla Login()
 
-            // Cuando LoginRoute me avisa, navego a la pantalla Welcome.
+            // Cuando LoginRoute me avisa, navego a la pantalla Welcome
             LoginRoute(
                 onNavigateToWelcome = {
                     navController.navigate(NavRoutes.WELCOME)
@@ -40,7 +40,7 @@ fun AppNavGraph(
             )
         }
 
-        // Si la ruta es WELCOME, se mostrará la pantalla Welcome.
+        // Aquí irá la pantalla Welcome()
         composable(NavRoutes.WELCOME) {
             // Aquí irá la pantalla Welcome()
             // Cuando el usuario pulsa empezar, navegamos a la pantalla del juego.
@@ -79,13 +79,11 @@ fun AppNavGraph(
                 onPlayAgain = {
                     //esta es la lambda que se ejecuta al pulsar "Jugar otra". Aquí es donde reiniciamos la partida.
                     // llamada desde ResultRoute, que a su vez se llama desde ResultScreen.
-                    // Volvemos a Game. En el siguiente paso haremos que reinicie seguro con el popUpTo para
-                    // evitar que se acumulen pantallas.
                     navController.navigate(NavRoutes.GAME) {
                         popUpTo(NavRoutes.GAME) { inclusive = true }
                     }
                 },
-                // Volvemos a Welcome. En el siguiente paso haremos que reinicie seguro con el popUpTo.
+                // Vuelvo a Welcome
                 //lambda que se ejecuta al pulsar "Volver al menú". Aquí es donde volvemos a la pantalla de bienvenida.
                 // llamada desde ResultRoute, que a su vez se llama desde ResultScreen.
                 onBackToMenu = {

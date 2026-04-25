@@ -1,7 +1,7 @@
 package com.example.buscaminas_2dapracticakotlinjeckpackcompose.ui.game
 
 // Estado único del juego, lo que se dibuja en pantalla sale de aquí
-// Este estado es inmutable, cada cambio crea una copia nueva y la se pinta de nuevo en pantalla
+// Este estado es inmutable, cada cambio crea una copia nueva y la UI se actualiza
 // Esto es lo que hace que la UI se actualice sola al cambiar el estado.
 data class GameUiState(
 
